@@ -44,21 +44,6 @@ resource "aws_s3_bucket_public_access_block" "lb_s3_bucket_public_access_block" 
 }
 
 # Configure the bucket policy to allow public access to the website content
-resource "aws_s3_bucket_policy" "lb_s3_static_website_policy" {
-  bucket = aws_s3_bucket.lb_s3_bucket.id
-
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Effect    = "Allow",
-        Principal = "*",
-        Action    = "s3:GetObject",
-        Resource  = "${aws_s3_bucket.lb_s3_bucket.arn}/*"
-      }
-    ]
-  })
-}
 
 # Upload the index.html file to the S3 bucket
 resource "aws_s3_object" "index" {
