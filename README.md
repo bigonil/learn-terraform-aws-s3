@@ -13,7 +13,7 @@ This Terraform script creates an AWS S3 bucket configured to host a static websi
 
 Below is a high-level architecture diagram showing the static website hosted in an S3 bucket:
 
-![S3 Static Website Architecture](./images/s3-static-website-diagram.png)
+![S3 Static Website Architecture](./images//static-website-s3-architecture.png/)
 
 ## Prerequisites
 
