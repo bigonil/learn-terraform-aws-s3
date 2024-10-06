@@ -1,18 +1,23 @@
 # Create an S3 bucket
 resource "aws_s3_bucket" "lb_s3_bucket" {
   bucket = "lb-s3-webstatic-bucket-631737274131"
-  acl = "public-read"
-  
-  
   tags = {
     Name        = "S3 Static Website"
     Environment = "Production"
   }
+ } 
 
-  versioning {
-    enabled = var.enable_versioning
+resource "aws_s3_bucket_versioning" "lb_s3_bucket_versioning" {
+  bucket = aws_s3_bucket.lb_s3_bucket.id
+  versioning_configuration { 
+    status = "Enabled"
   }
 }
+
+resource "aws_s3_bucket_acl" "lb_s3_bucket_acl" {
+  bucket = aws_s3_bucket.lb_s3_bucket.id
+  acl    = "public-read"
+  } 
 
 # Separate the website configuration for the S3 bucket
 resource "aws_s3_bucket_website_configuration" "lb_s3_bucket_website" {
