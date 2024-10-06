@@ -1,7 +1,17 @@
 # Create an S3 bucket
 resource "aws_s3_bucket" "lb_s3_bucket" {
   bucket = "lb-s3-bucket-acm-631737274131"
+  acl = "public-read"
   
+  
+  tags = {
+    Name        = "S3 Static Website"
+    Environment = "Production"
+  }
+
+  versioning {
+    enabled = var.enable_versioning
+  }
 }
 
 # Disable Block Public Access for the S3 bucket
