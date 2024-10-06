@@ -1,7 +1,3 @@
-Here’s a sample `README.md` file for a Terraform script that generates an S3 static website bucket, along with an example of how to include an image to describe the architecture.
-
----
-
 # Terraform S3 Static Website
 
 This Terraform script creates an AWS S3 bucket configured to host a static website. The S3 bucket can be used to serve static content such as HTML, CSS, JavaScript, and other assets directly from AWS.
