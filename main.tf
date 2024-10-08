@@ -1,64 +1,39 @@
-# Create an S3 bucket
+# S3 bucket resource with website configuration and versioning
 resource "aws_s3_bucket" "lb_s3_bucket" {
-  bucket = "lb-s3-webstatic-bucket-631737274131"
+  bucket = var.bucket_name
+
   tags = {
     Name        = "S3 Static Website"
-    Environment = "Production"
+    Environment = var.environment
   }
- } 
 
- resource "aws_s3_bucket_ownership_controls" "example" {
-  bucket = aws_s3_bucket.lb_s3_bucket.id
-  rule {
-    object_ownership = "BucketOwnerPreferred"
+  website {
+    index_document = var.index_document
+    error_document = var.error_document
   }
 }
 
-# AWS S3 bucket ACL resource
-resource "aws_s3_bucket_acl" "example" {
-  depends_on = [
-    aws_s3_bucket_ownership_controls.example,
-    aws_s3_bucket_public_access_block.example,
-  ]
-
+# Enable versioning for the S3 bucket
+resource "aws_s3_bucket_versioning" "lb_s3_bucket_versioning" {
   bucket = aws_s3_bucket.lb_s3_bucket.id
-  acl    = "public-read"
-}
-
-resource "aws_s3_bucket_versioning" "example" {
-  bucket = aws_s3_bucket.lb_s3_bucket.id
-  versioning_configuration { 
-    status = "Enabled"
+  
+  versioning_configuration {
+    status = var.enable_versioning ? "Enabled" : "Suspended"
   }
 }
-
-# Separate the website configuration for the S3 bucket
-resource "aws_s3_bucket_website_configuration" "example" {
-  bucket = aws_s3_bucket.lb_s3_bucket.id
-
-  index_document {
-    suffix = "index.html"
-  }
-
-  error_document {
-    key = "error.html"
-  }
-}
-
 
 # Disable Block Public Access for the S3 bucket
-resource "aws_s3_bucket_public_access_block" "example" {
+resource "aws_s3_bucket_public_access_block" "lb_s3_bucket_public_access_block" {
   bucket = aws_s3_bucket.lb_s3_bucket.id
 
-  block_public_acls   = false
-  block_public_policy = false
-  ignore_public_acls  = false
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
   restrict_public_buckets = false
 }
 
-# Configure the bucket policy to allow public access to the website content
-
-resource "aws_s3_bucket_policy" "example" {
+# Bucket policy to allow CloudFront to access S3 content
+resource "aws_s3_bucket_policy" "lb_s3_static_website_policy" {
   bucket = aws_s3_bucket.lb_s3_bucket.id
 
   policy = jsonencode({
@@ -66,30 +41,82 @@ resource "aws_s3_bucket_policy" "example" {
     Statement = [
       {
         Effect    = "Allow",
-        Principal = "*",
+        Principal = {
+          "Service": "cloudfront.amazonaws.com"
+        },
         Action    = "s3:GetObject",
-        Resource  = "${aws_s3_bucket.lb_s3_bucket.arn}/*"
+        Resource  = "${aws_s3_bucket.lb_s3_bucket.arn}/*",
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.lb_cloudfront.arn
+          }
+        }
       }
     ]
   })
 }
 
+# CloudFront Origin Access Control
+resource "aws_cloudfront_origin_access_control" "lb_s3_oac" {
+  name                          = "s3-oac"
+  origin_access_control_origin_type = "s3"
+  signing_behavior              = "always"
+  signing_protocol              = "sigv4"
+}
+
+# CloudFront Distribution for S3 static website
+resource "aws_cloudfront_distribution" "lb_cloudfront" {
+  origin {
+    domain_name               = aws_s3_bucket.lb_s3_bucket.bucket_regional_domain_name
+    origin_id                 = aws_s3_bucket.lb_s3_bucket.id
+    origin_access_control_id  = aws_cloudfront_origin_access_control.lb_s3_oac.id
+  }
+
+  enabled = true
+  is_ipv6_enabled = true
+
+  default_cache_behavior {
+    allowed_methods  = ["GET", "HEAD"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = aws_s3_bucket.lb_s3_bucket.id
+
+    viewer_protocol_policy = "redirect-to-https"
+
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+
+    min_ttl     = 0
+    default_ttl = 3600
+    max_ttl     = 86400
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  default_root_object = var.index_document
+}
+
 # Upload the index.html file to the S3 bucket
 resource "aws_s3_object" "index" {
   bucket = aws_s3_bucket.lb_s3_bucket.bucket
-  key    = "index.html"
-  source = "index.html"  # Provide the path to your local index.html file
-  acl = "public-read"
+  key    = var.index_document
+  source = var.index_html_source
 }
 
 # Upload the error.html file to the S3 bucket
 resource "aws_s3_object" "error" {
   bucket = aws_s3_bucket.lb_s3_bucket.bucket
-  key    = "error.html"
-  source = "error.html"  # Provide the path to your local error.html file
-  acl = "public-read"
- }
-
-output "website_url" {
-  value = aws_s3_bucket_website_configuration.example.website_endpoint
+  key    = var.error_document
+  source = var.error_html_source
 }
